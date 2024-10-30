@@ -83,18 +83,31 @@ async def octo_help(ctx):
     embed.add_field(name="!octo_help", value="Show this help message.", inline=False)
     await ctx.send(embed=embed)
 
+#emoji conversions 
 @bot.command()
-async def emojiConvert(ctx, emoji_name):
-    """Convert an emoji to an image format (PNG or JPG) or GIF for animated emojis."""
+async def emoji_to_image(ctx, *, emoji_name: str):
+    """Convert a custom emoji to an image format (PNG or JPG) or GIF for animated emojis."""
     try:
-        # Get the list of custom emojis from the guild
-        guild = ctx.guild
-        emoji = discord.utils.get(guild.emojis, name=emoji_name)
+        # Check if the emoji is a custom emoji
+        emoji = None
+        
+        # Check for custom emojis in the guild
+        for guild_emoji in ctx.guild.emojis:
+            if guild_emoji.name == emoji_name:
+                emoji = guild_emoji
+                break
+        
+        # If it's not a custom emoji, it could be a standard emoji
+        if not emoji:
+            # Try to convert the standard emoji to an image
+            emoji_unicode = emoji_name.encode('utf-8').decode('unicode_escape')
+            emoji = discord.Emoji(name=emoji_unicode)  # If you need to handle standard emojis
 
         if emoji:
-            # Fetch the URL for the emoji
+            # Construct the URL for the emoji
             emoji_url = f"https://cdn.discordapp.com/emojis/{emoji.id}.png?v=1"
             gif_url = f"https://cdn.discordapp.com/emojis/{emoji.id}.gif?v=1"  # GIF URL for animated emoji
+            
             response = requests.get(emoji_url)
 
             # If the PNG fails, try the GIF
