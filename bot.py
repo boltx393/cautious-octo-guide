@@ -85,7 +85,7 @@ async def octo_help(ctx):
 
 @bot.command()
 async def emoji_to_image(ctx, emoji_input):
-    """Convert an emoji to an image format (PNG or JPG)."""
+    """Convert an emoji to an image format (PNG or JPG) using Gemoji."""
     try:
         # Check if it's a custom Discord emoji (requires specific format)
         if emoji_input.startswith("<:") and emoji_input.endswith(">"):
@@ -97,8 +97,8 @@ async def emoji_to_image(ctx, emoji_input):
             # Handle Unicode emoji
             # Ensure the input is a single emoji character
             if len(emoji_input) == 1:
-                unicode_url = f"https://twemoji.maxcdn.com/v/latest/72x72/{ord(emoji_input):x}.png"
-                response = requests.get(unicode_url)
+                # Fetch from Gemoji
+                response = requests.get(f"https://github.com/googlefonts/noto-emoji/raw/main/png/128/emoji_u{ord(emoji_input):x}.png")
             else:
                 await ctx.send("Please provide a single emoji or a valid custom emoji.")
                 return
@@ -120,6 +120,6 @@ async def emoji_to_image(ctx, emoji_input):
     except Exception as e:
         await ctx.send("An error occurred while processing the emoji.")
         print(f"Error: {e}")
-
+        
 bot.run(TOKEN)
  
