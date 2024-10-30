@@ -1,6 +1,13 @@
 import discord
 from discord.ext import commands
 from datetime import datetime
+
+import emoji
+import requests
+from io import BytesIO
+from PIL import Image
+
+#importing token 
 from config import TOKEN
 
 intents = discord.Intents.default()
@@ -72,6 +79,33 @@ async def octo_help(ctx):
     embed.add_field(name="!ban [user] [reason]", value="Ban a user (requires permission).", inline=False)
     embed.add_field(name="!octo_help", value="Show this help message.", inline=False)
     await ctx.send(embed=embed)
+
+@bot.command()
+async def emoji_to_image(ctx, emoji_input):
+    """Convert an emoji to an image format (PNG or JPG)."""
+    # Check if it's a custom Discord emoji (requires specific format)
+    if emoji_input.startswith("<:") and emoji_input.endswith(">"):
+        # Extract custom emoji ID and fetch its URL
+        emoji_id = emoji_input.split(":")[-1][:-1]
+        emoji_url = f"https://cdn.discordapp.com/emojis/{emoji_id}.png?v=1"
+        response = requests.get(emoji_url)
+    else:
+        # Handle Unicode emoji
+        emoji_code = emoji.demojize(emoji_input)
+        unicode_url = f"https://twemoji.maxcdn.com/v/latest/72x72/{ord(emoji_input):x}.png"
+        response = requests.get(unicode_url)
+
+    # Check if the request was successful
+    if response.status_code == 200:
+        image = Image.open(BytesIO(response.content))
+        img_format = "PNG"  # or "JPEG" if preferred
+        img_path = f"emoji_image.{img_format.lower()}"
+        image.save(img_path, format=img_format)
+
+        # Send the image back to the Discord channel
+        await ctx.send(file=discord.File(img_path))
+    else:
+        await ctx.send("Sorry, I couldn't convert that emoji to an image.")
 
 bot.run(TOKEN)
  
