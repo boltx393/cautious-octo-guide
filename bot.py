@@ -69,7 +69,7 @@ async def ban(ctx, member: discord.Member, *, reason=None):
     await member.ban(reason=reason)
     await ctx.send(f"{member.mention} has been banned for {reason}.")
 
-# Renamed help command to octo_help
+# help command to octo_help
 @bot.command(name="octo_help")
 async def octo_help(ctx):
     embed = discord.Embed(title="Octo-Bot Commands", color=discord.Color.green())
@@ -92,9 +92,14 @@ async def emoji_to_image(ctx, emoji_input):
         response = requests.get(emoji_url)
     else:
         # Handle Unicode emoji
-        emoji_code = emoji.demojize(emoji_input)
-        unicode_url = f"https://twemoji.maxcdn.com/v/latest/72x72/{ord(emoji_input):x}.png"
-        response = requests.get(unicode_url)
+        # Ensure the input is a single emoji character
+        if len(emoji_input) == 1:
+            emoji_code = emoji.demojize(emoji_input)
+            unicode_url = f"https://twemoji.maxcdn.com/v/latest/72x72/{ord(emoji_input):x}.png"
+            response = requests.get(unicode_url)
+        else:
+            await ctx.send("Please provide a single emoji or a valid custom emoji.")
+            return
 
     # Check if the request was successful
     if response.status_code == 200:
