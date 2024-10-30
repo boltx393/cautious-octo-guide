@@ -77,6 +77,7 @@ async def octo_help(ctx):
     embed.add_field(name="!message_count_today", value="Show today's message count for a user.", inline=False)
     embed.add_field(name="!kick [user] [reason]", value="Kick a user (requires permission).", inline=False)
     embed.add_field(name="!ban [user] [reason]", value="Ban a user (requires permission).", inline=False)
+    embed.add_field(name="!emoji_to_image [emoji]", value="Convert an emoji to a PNG or JPG image.", inline=False)
     embed.add_field(name="!octo_help", value="Show this help message.", inline=False)
     await ctx.send(embed=embed)
 
