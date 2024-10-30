@@ -83,21 +83,32 @@ async def octo_help(ctx):
     embed.add_field(name="!octo_help", value="Show this help message.", inline=False)
     await ctx.send(embed=embed)
 
+import requests
+from io import BytesIO
+from PIL import Image
+import discord
+from discord.ext import commands
+import emoji
+
 @bot.command()
 async def emoji_to_image(ctx, emoji_input):
-    """Convert an emoji to an image format (PNG or JPG) using Gemoji."""
+    """Convert an emoji to an image format (PNG or JPG) or GIF for animated emojis."""
     try:
-        # Check if it's a custom Discord emoji (requires specific format)
+        # Check if it's a custom Discord emoji
         if emoji_input.startswith("<:") and emoji_input.endswith(">"):
             # Extract custom emoji ID and fetch its URL
             emoji_id = emoji_input.split(":")[-1][:-1]
             emoji_url = f"https://cdn.discordapp.com/emojis/{emoji_id}.png?v=1"
+            gif_url = f"https://cdn.discordapp.com/emojis/{emoji_id}.gif?v=1"  # GIF URL for animated emoji
             response = requests.get(emoji_url)
+
+            # If the PNG fails, try the GIF
+            if response.status_code != 200:
+                response = requests.get(gif_url)
+
         else:
-            # Handle Unicode emoji
-            # Ensure the input is a single emoji character
+            # Handle Unicode emoji (static PNG only)
             if len(emoji_input) == 1:
-                # Fetch from Gemoji
                 response = requests.get(f"https://github.com/googlefonts/noto-emoji/raw/main/png/128/emoji_u{ord(emoji_input):x}.png")
             else:
                 await ctx.send("Please provide a single emoji or a valid custom emoji.")
@@ -105,10 +116,10 @@ async def emoji_to_image(ctx, emoji_input):
 
         # Check if the request was successful
         if response.status_code == 200:
-            image = Image.open(BytesIO(response.content))
-            img_format = "PNG"  # or "JPEG" if preferred
+            img_format = "PNG" if response.headers.get('Content-Type') == 'image/png' else "GIF"
             img_path = f"emoji_image.{img_format.lower()}"
-            image.save(img_path, format=img_format)
+            with open(img_path, "wb") as img_file:
+                img_file.write(response.content)
 
             # Send the image back to the Discord channel
             await ctx.send(file=discord.File(img_path))
@@ -120,6 +131,6 @@ async def emoji_to_image(ctx, emoji_input):
     except Exception as e:
         await ctx.send("An error occurred while processing the emoji.")
         print(f"Error: {e}")
-        
+
 bot.run(TOKEN)
  
