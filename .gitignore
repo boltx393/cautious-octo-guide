@@ -1,0 +1,32 @@
+# Ignore Python cache and compiled files
+__pycache__/
+*.py[cod]
+
+# Ignore config files with sensitive information
+config.py
+
+# Environment variables
+.env
+
+# Virtual environment folder
+venv/
+env/
+.venv/
+
+# macOS files
+.DS_Store
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+
+# Linux / Unix system files
+*.swp
+.swo
+
+# Logs
+*.log
+
+# Python IDE project files
+.vscode/
+.idea/
