@@ -8,4 +8,4 @@ Meet **Octo-Bot** – the eight-armed (okay, not really) helper you never knew y
 - **Daily Chatter Count** – Curious who's chatty today? Try `!message_count_today`.
 - **Kick & Ban** – For when things get too spicy. Use `!kick` or `!ban` (mods only).
 - **Help Command** – Lists commands because even Octo-Bot can be forgetful! (`!octo_help`).
-- **Emoji to Image** – Convert your favorite emojis into PNG or JPG or GIF images with `!emoji_to_image`.
+- **Emoji to Image** – Convert your favorite emojis into PNG or JPG or GIF images with `!emojiConvert`.

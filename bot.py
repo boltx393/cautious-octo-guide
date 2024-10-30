@@ -79,58 +79,48 @@ async def octo_help(ctx):
     embed.add_field(name="!message_count_today", value="Show today's message count for a user.", inline=False)
     embed.add_field(name="!kick [user] [reason]", value="Kick a user (requires permission).", inline=False)
     embed.add_field(name="!ban [user] [reason]", value="Ban a user (requires permission).", inline=False)
-    embed.add_field(name="!emoji_to_image [emoji]", value="Convert an emoji to a PNG or JPG image.", inline=False)
+    embed.add_field(name="!emojiConvert [emoji]", value="Convert an emoji to a PNG or JPG image.", inline=False)
     embed.add_field(name="!octo_help", value="Show this help message.", inline=False)
     await ctx.send(embed=embed)
 
-import requests
-from io import BytesIO
-from PIL import Image
-import discord
-from discord.ext import commands
-import emoji
-
 @bot.command()
-async def emoji_to_image(ctx, emoji_input):
+async def emojiConvert(ctx, emoji_name):
     """Convert an emoji to an image format (PNG or JPG) or GIF for animated emojis."""
     try:
-        # Check if it's a custom Discord emoji
-        if emoji_input.startswith("<:") and emoji_input.endswith(">"):
-            # Extract custom emoji ID and fetch its URL
-            emoji_id = emoji_input.split(":")[-1][:-1]
-            emoji_url = f"https://cdn.discordapp.com/emojis/{emoji_id}.png?v=1"
-            gif_url = f"https://cdn.discordapp.com/emojis/{emoji_id}.gif?v=1"  # GIF URL for animated emoji
+        # Get the list of custom emojis from the guild
+        guild = ctx.guild
+        emoji = discord.utils.get(guild.emojis, name=emoji_name)
+
+        if emoji:
+            # Fetch the URL for the emoji
+            emoji_url = f"https://cdn.discordapp.com/emojis/{emoji.id}.png?v=1"
+            gif_url = f"https://cdn.discordapp.com/emojis/{emoji.id}.gif?v=1"  # GIF URL for animated emoji
             response = requests.get(emoji_url)
 
             # If the PNG fails, try the GIF
             if response.status_code != 200:
                 response = requests.get(gif_url)
 
-        else:
-            # Handle Unicode emoji (static PNG only)
-            if len(emoji_input) == 1:
-                response = requests.get(f"https://github.com/googlefonts/noto-emoji/raw/main/png/128/emoji_u{ord(emoji_input):x}.png")
+            # Check if the request was successful
+            if response.status_code == 200:
+                img_format = "PNG" if response.headers.get('Content-Type') == 'image/png' else "GIF"
+                img_path = f"emoji_image.{img_format.lower()}"
+                with open(img_path, "wb") as img_file:
+                    img_file.write(response.content)
+
+                # Send the image back to the Discord channel
+                await ctx.send(file=discord.File(img_path))
             else:
-                await ctx.send("Please provide a single emoji or a valid custom emoji.")
-                return
-
-        # Check if the request was successful
-        if response.status_code == 200:
-            img_format = "PNG" if response.headers.get('Content-Type') == 'image/png' else "GIF"
-            img_path = f"emoji_image.{img_format.lower()}"
-            with open(img_path, "wb") as img_file:
-                img_file.write(response.content)
-
-            # Send the image back to the Discord channel
-            await ctx.send(file=discord.File(img_path))
+                await ctx.send("Sorry, I couldn't convert that emoji to an image.")
         else:
-            await ctx.send("Sorry, I couldn't convert that emoji to an image.")
+            await ctx.send("Emoji not found. Please ensure it's a valid custom emoji name.")
     except requests.exceptions.RequestException as e:
         await ctx.send("There was a network error. Please try again later.")
         print(f"Network error: {e}")
     except Exception as e:
         await ctx.send("An error occurred while processing the emoji.")
         print(f"Error: {e}")
+
 
 bot.run(TOKEN)
  
