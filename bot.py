@@ -1,13 +1,14 @@
 import discord
 from discord.ext import commands
 from datetime import datetime
-
 import requests
 from io import BytesIO
 from PIL import Image
 import discord
 from discord.ext import commands
 import emoji
+from pathlib import Path
+import os
 
 #importing token 
 from config import TOKEN
@@ -52,6 +53,7 @@ async def on_message(message):
     message_count[user_id][today] += 1
     await bot.process_commands(message)
 
+#message_count
 @bot.command()
 async def message_count_today(ctx, member: discord.Member = None):
     member = member or ctx.author
@@ -59,12 +61,15 @@ async def message_count_today(ctx, member: discord.Member = None):
     count = message_count.get(member.id, {}).get(today, 0)
     await ctx.send(f"{member.name} has sent {count} messages today.")
 
+
+#kick members
 @bot.command()
 @commands.has_permissions(kick_members=True)
 async def kick(ctx, member: discord.Member, *, reason=None):
     await member.kick(reason=reason)
     await ctx.send(f"{member.mention} has been kicked for {reason}.")
 
+#ban members
 @bot.command()
 @commands.has_permissions(ban_members=True)
 async def ban(ctx, member: discord.Member, *, reason=None):
@@ -84,56 +89,109 @@ async def octo_help(ctx):
     await ctx.send(embed=embed)
 
 #emoji conversions 
-@bot.command()
-async def emoji_to_image(ctx, *, emoji_name: str):
-    """Convert a custom emoji to an image format (PNG or JPG) or GIF for animated emojis."""
+def extract_frames(image):
+    """Extract all frames from an animated GIF."""
     try:
-        # Check if the emoji is a custom emoji
-        emoji = None
-        
-        # Check for custom emojis in the guild
-        for guild_emoji in ctx.guild.emojis:
-            if guild_emoji.name == emoji_name:
-                emoji = guild_emoji
-                break
-        
-        # If it's not a custom emoji, it could be a standard emoji
-        if not emoji:
-            # Try to convert the standard emoji to an image
-            emoji_unicode = emoji_name.encode('utf-8').decode('unicode_escape')
-            emoji = discord.Emoji(name=emoji_unicode)  # If you need to handle standard emojis
+        frames = []
+        for frame in range(getattr(image, "n_frames", 1)):
+            image.seek(frame)
+            frames.append(image.copy())
+        return frames
+    except Exception as e:
+        print(f"Frame extraction error: {e}")
+        return None
 
-        if emoji:
-            # Construct the URL for the emoji
-            emoji_url = f"https://cdn.discordapp.com/emojis/{emoji.id}.png?v=1"
-            gif_url = f"https://cdn.discordapp.com/emojis/{emoji.id}.gif?v=1"  # GIF URL for animated emoji
-            
+@bot.command()
+async def emoji_to_image(ctx, emoji_input):
+    """Convert an emoji to an image format (PNG, JPG, or GIF) supporting animated emojis."""
+    try:
+        # Handle custom Discord emoji
+        if emoji_input.startswith("<") and emoji_input.endswith(">"):
+            is_animated = emoji_input.startswith("<a:")
+            emoji_id = emoji_input.split(":")[-1][:-1]
+            extension = "gif" if is_animated else "png"
+            emoji_url = f"https://cdn.discordapp.com/emojis/{emoji_id}.{extension}?v=1"
             response = requests.get(emoji_url)
-
-            # If the PNG fails, try the GIF
-            if response.status_code != 200:
-                response = requests.get(gif_url)
-
-            # Check if the request was successful
-            if response.status_code == 200:
-                img_format = "PNG" if response.headers.get('Content-Type') == 'image/png' else "GIF"
-                img_path = f"emoji_image.{img_format.lower()}"
-                with open(img_path, "wb") as img_file:
-                    img_file.write(response.content)
-
-                # Send the image back to the Discord channel
-                await ctx.send(file=discord.File(img_path))
-            else:
-                await ctx.send("Sorry, I couldn't convert that emoji to an image.")
         else:
-            await ctx.send("Emoji not found. Please ensure it's a valid custom emoji name.")
+            # Handle Unicode emoji
+            if len(emoji_input) != 1:
+                await ctx.send("Please provide a single emoji or a valid custom emoji.")
+                return
+                
+            # Try both animated and static versions
+            emoji_hex = f"{ord(emoji_input):x}"
+            urls = [
+                f"https://github.com/googlefonts/noto-emoji/raw/main/animated-emoji/u{emoji_hex}.gif",
+                f"https://github.com/googlefonts/noto-emoji/raw/main/png/128/emoji_u{emoji_hex}.png"
+            ]
+            
+            response = None
+            for url in urls:
+                temp_response = requests.get(url)
+                if temp_response.status_code == 200:
+                    response = temp_response
+                    break
+            
+            if not response:
+                await ctx.send("Sorry, I couldn't find that emoji.")
+                return
+
+        if response.status_code == 200:
+            # Create temp directory if it doesn't exist
+            temp_dir = Path("temp_emoji")
+            temp_dir.mkdir(exist_ok=True)
+            
+            # Load image data
+            image_data = BytesIO(response.content)
+            image = Image.open(image_data)
+            
+            # Handle both static and animated images
+            if getattr(image, "is_animated", False):
+                img_path = temp_dir / "emoji.gif"
+                
+                # Extract and save frames
+                frames = extract_frames(image)
+                if frames:
+                    # Get duration from original GIF or default to 100ms
+                    duration = image.info.get('duration', 100)
+                    
+                    # Save the animated GIF
+                    frames[0].save(
+                        img_path,
+                        save_all=True,
+                        append_images=frames[1:],
+                        optimize=False,
+                        duration=duration,
+                        loop=0
+                    )
+                else:
+                    # If frame extraction fails, save as static image
+                    image.seek(0)
+                    img_path = temp_dir / "emoji.png"
+                    image.save(img_path, format="PNG")
+            else:
+                img_path = temp_dir / "emoji.png"
+                image.save(img_path, format="PNG")
+
+            # Send the image and clean up
+            await ctx.send(file=discord.File(img_path))
+            try:
+                os.remove(img_path)
+            except Exception as e:
+                print(f"Cleanup error: {e}")
+            
+        else:
+            await ctx.send("Sorry, I couldn't convert that emoji to an image.")
+            
     except requests.exceptions.RequestException as e:
         await ctx.send("There was a network error. Please try again later.")
         print(f"Network error: {e}")
     except Exception as e:
         await ctx.send("An error occurred while processing the emoji.")
         print(f"Error: {e}")
-
+        # More detailed error logging
+        import traceback
+        print(f"Detailed error: {traceback.format_exc()}")
 
 bot.run(TOKEN)
  
